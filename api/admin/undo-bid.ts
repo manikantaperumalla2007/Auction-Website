@@ -6,7 +6,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).end();
   }
 
-  const { bidId, playerId, undoneBy } = req.body;
+  const { bidId, playerId } = req.body;
 
   if (!playerId) {
     return res.status(400).json({ error: 'playerId is required' });
@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { error: bidErr } = await supabaseAdmin
       .from('bids')
-      .update({ is_undone: true, undone_by: undoneBy || null })
+      .update({ is_undone: true })
       .eq('id', targetBidId);
 
     if (bidErr) return res.status(500).json({ error: bidErr.message });
@@ -59,16 +59,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (remainingErr) return res.status(500).json({ error: remainingErr.message });
 
     const newTopBid = remainingBids && remainingBids.length > 0 ? remainingBids[0] : null;
-
-    const { error: updateErr } = await supabaseAdmin
-      .from('players')
-      .update({
-        current_bid: newTopBid ? newTopBid.amount : 0,
-        last_bidder_id: newTopBid ? newTopBid.team_id : null,
-      })
-      .eq('id', playerId);
-
-    if (updateErr) return res.status(500).json({ error: updateErr.message });
 
     return res.status(200).json({
       success: true,

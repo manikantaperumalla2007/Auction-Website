@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { error: playErr } = await supabaseAdmin
       .from('players')
-      .update({ status: 'UNSOLD', current_bid: 0, last_bidder_id: null })
+      .update({ status: 'UNSOLD' })
       .eq('id', playerId);
 
     if (playErr) return res.status(500).json({ error: playErr.message });

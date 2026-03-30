@@ -16,8 +16,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: 'UPCOMING', 
         sold_to_team_id: null,
         sold_price: null,
-        current_bid: 0,
-        last_bidder_id: null,
         updated_at: new Date().toISOString()
       })
       .neq('id', '00000000-0000-0000-0000-000000000000');

@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (session.current_player_id) {
       await supabaseAdmin
         .from('players')
-        .update({ status: 'UPCOMING', current_bid: 0, last_bidder_id: null })
+        .update({ status: 'UPCOMING' })
         .eq('id', session.current_player_id);
     }
 
@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { error: playErr } = await supabaseAdmin
       .from('players')
-      .update({ status: 'LIVE', current_bid: player.base_price, last_bidder_id: null })
+      .update({ status: 'LIVE' })
       .eq('id', playerId);
 
     if (sessErr || playErr) return res.status(500).json({ error: (sessErr || playErr)?.message });

@@ -27,18 +27,31 @@ export async function placeBid({ playerId, teamId, amount, increment_used, userI
 
   const { data: player, error: playerErr } = await supabaseAdmin
     .from('players')
-    .select('id, status, base_price, current_bid, last_bidder_id')
+    .select('id, status, base_price')
     .eq('id', playerId)
     .single();
 
   if (playerErr || !player) throw new Error('Player records could not be fetched');
   if (player.status !== 'LIVE') throw new Error('This player is not open for bidding');
+
+  const { data: leadingBid, error: leadingBidErr } = await supabaseAdmin
+    .from('bids')
+    .select('amount, team_id')
+    .eq('player_id', playerId)
+    .eq('is_undone', false)
+    .order('amount', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (leadingBidErr) {
+    throw new Error(leadingBidErr.message);
+  }
   
-  if (!isOverride && player.last_bidder_id === teamId) {
+  if (!isOverride && leadingBid?.team_id === teamId) {
     throw new Error('You are already the leading bidder');
   }
 
-  const minimumAllowedBid = Math.max(player.base_price, player.current_bid || 0);
+  const minimumAllowedBid = Math.max(player.base_price, leadingBid?.amount || 0);
 
   if (amount <= minimumAllowedBid) {
     throw new Error(`Bid must be greater than ${minimumAllowedBid}`);
@@ -49,13 +62,6 @@ export async function placeBid({ playerId, teamId, amount, increment_used, userI
     .insert([{ player_id: playerId, team_id: teamId, amount, increment_used }]);
 
   if (insertErr) throw new Error(insertErr.message || 'Failed to record bid');
-
-  const { error: updateErr } = await supabaseAdmin
-    .from('players')
-    .update({ current_bid: amount, last_bidder_id: teamId })
-    .eq('id', playerId);
-
-  if (updateErr) throw new Error(updateErr.message || 'Failed to update the leading bid');
 
   return { success: true, new_amount: amount, teamId };
 }
@@ -91,8 +97,6 @@ export async function finalizeSale(playerId: string, teamId: string, price: numb
       status: 'SOLD', 
       sold_to_team_id: teamId, 
       sold_price: price,
-      current_bid: price,
-      last_bidder_id: teamId,
       updated_at: new Date().toISOString()
     })
     .eq('id', playerId);
