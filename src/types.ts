@@ -1,7 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-
-export const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
 export interface Player {
   id: string;
   name: string;
@@ -18,7 +14,5 @@ export interface Player {
     precision: number;
     impact: number;
   };
-  status: 'UPCOMING' | 'LIVE' | 'SOLD' | 'UNSOLD' | 'Bidding'; // Added 'Bidding' for backwards compatibility with front-end mock logic if any
+  status: 'UPCOMING' | 'LIVE' | 'SOLD' | 'UNSOLD';
 }
-
-export const PLAYERS: Player[] = [];

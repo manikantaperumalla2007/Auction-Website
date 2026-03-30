@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Search, Bell, Wallet, PlusCircle } from 'lucide-react';
-import { Player } from '../types';
+import { Search } from 'lucide-react';
+import type { Player } from '../types';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
@@ -21,10 +21,10 @@ export default function PlayerDirectory({ user }: PlayerDirectoryProps) {
 
     const channel = supabase
       .channel('players-all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
         fetchPlayers();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => {
         fetchPlayers();
       })
       .subscribe();
@@ -46,17 +46,24 @@ export default function PlayerDirectory({ user }: PlayerDirectoryProps) {
 
   const filteredPlayers = players.filter(p => {
     const matchesPos = activePosition === 'All Positions' || 
-                       p.position === activePosition || 
-                       (p.position && p.position.includes(activePosition)) ||
-                       (p.department && p.department.includes(activePosition));
+      p.position === activePosition || 
+      (p.position && p.position.includes(activePosition)) ||
+      (p.department && p.department.includes(activePosition));
     const matchesStatus = activeStatus === 'ALL' || p.status === activeStatus;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesPos && matchesStatus && matchesSearch;
   });
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center text-primary font-black animate-pulse uppercase tracking-[0.4em]">
+        Loading Players
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-surface text-white font-body selection:bg-primary selection:text-surface">
-      {/* Top Navigation */}
       <header className="bg-black/80 backdrop-blur-xl sticky top-0 z-50 border-b border-white/5">
         <div className="flex justify-between items-center w-full px-6 py-4 max-w-screen-2xl mx-auto">
           <h1 className="font-headline font-black italic tracking-tighter text-3xl md:text-5xl lg:text-6xl text-white uppercase leading-none drop-shadow-2xl">
@@ -66,7 +73,6 @@ export default function PlayerDirectory({ user }: PlayerDirectoryProps) {
       </header>
 
       <main className="max-w-screen-2xl mx-auto px-6 py-8 pb-32">
-        {/* Header & Search */}
         <section className="mb-12">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
@@ -90,12 +96,11 @@ export default function PlayerDirectory({ user }: PlayerDirectoryProps) {
           </div>
         </section>
 
-        {/* Filters */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-10">
           <div className="lg:col-span-7 flex flex-wrap gap-2">
             <button 
-                onClick={() => setActivePosition('All Positions')}
-                className={cn("px-6 py-3 font-label font-bold uppercase text-xs tracking-widest rounded-lg transition-all", activePosition === 'All Positions' ? "bg-primary text-surface shadow-[0_0_15px_rgba(255,231,146,0.3)]" : "bg-surface-container-high hover:bg-surface-bright text-white/60")}
+              onClick={() => setActivePosition('All Positions')}
+              className={cn("px-6 py-3 font-label font-bold uppercase text-xs tracking-widest rounded-lg transition-all", activePosition === 'All Positions' ? "bg-primary text-surface shadow-[0_0_15px_rgba(255,231,146,0.3)]" : "bg-surface-container-high hover:bg-surface-bright text-white/60")}
             >All Positions</button>
             {[
               { id: 'GK', label: 'Goalkeeper' },
@@ -104,49 +109,45 @@ export default function PlayerDirectory({ user }: PlayerDirectoryProps) {
               { id: 'FWD', label: 'Forward' }
             ].map(pos => (
               <button 
-                  key={pos.id} 
-                  onClick={() => setActivePosition(pos.id)}
-                  className={cn("px-6 py-3 font-label font-bold uppercase text-xs tracking-widest rounded-lg transition-all", activePosition === pos.id ? "bg-primary text-surface shadow-[0_0_15px_rgba(255,231,146,0.3)]" : "bg-surface-container-high hover:bg-surface-bright text-white/60")}
+                key={pos.id} 
+                onClick={() => setActivePosition(pos.id)}
+                className={cn("px-6 py-3 font-label font-bold uppercase text-xs tracking-widest rounded-lg transition-all", activePosition === pos.id ? "bg-primary text-surface shadow-[0_0_15px_rgba(255,231,146,0.3)]" : "bg-surface-container-high hover:bg-surface-bright text-white/60")}
               >
-                  {pos.label}
+                {pos.label}
               </button>
             ))}
           </div>
           <div className="lg:col-span-5 flex flex-wrap justify-end gap-2">
             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
-          {['ALL', 'UPCOMING', 'LIVE', 'SOLD', 'UNSOLD'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setActiveStatus(status)}
-              className={cn(
-                "px-6 py-2.5 rounded-full text-[10px] font-black tracking-[0.2em] transition-all border uppercase whitespace-nowrap",
-                activeStatus === status
-                  ? "bg-primary text-surface border-primary shadow-[0_0_20px_rgba(212,175,55,0.3)]"
-                  : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"
-              )}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
+              {['ALL', 'UPCOMING', 'LIVE', 'SOLD', 'UNSOLD'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setActiveStatus(status)}
+                  className={cn(
+                    "px-6 py-2.5 rounded-full text-[10px] font-black tracking-[0.2em] transition-all border uppercase whitespace-nowrap",
+                    activeStatus === status
+                      ? "bg-primary text-surface border-primary shadow-[0_0_20px_rgba(212,175,55,0.3)]"
+                      : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"
+                  )}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Player Grid */}
         <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {filteredPlayers.map(player => (
             <PlayerCard key={player.id} player={player} />
           ))}
         </section>
-
-
       </main>
-
     </div>
   );
 }
 
-function PlayerCard({ player, index }: { player: any; index?: number; key?: string | number }) {
+function PlayerCard({ player }: { player: any; key?: string | number }) {
   const tierClass = player.tier === 'GOLD' ? 'tier-gold-glow' : player.tier === 'SILVER' ? 'tier-silver-glow' : 'tier-bronze-glow';
   const tierColor = player.tier === 'GOLD' ? 'bg-[#ffd700] text-surface' : player.tier === 'SILVER' ? 'bg-[#e0e0e0] text-surface' : 'bg-[#a0522d] text-white';
   const gleamColor = player.tier === 'GOLD' ? '#ffd700' : player.tier === 'SILVER' ? '#e0e0e0' : '#a0522d';
@@ -185,11 +186,11 @@ function PlayerCard({ player, index }: { player: any; index?: number; key?: stri
         </div>
         <div className="absolute bottom-4 left-4 right-4">
           <div className="flex items-center gap-2 mb-1">
-            {(player.status === 'LIVE' || player.status === 'Bidding') && <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>}
-            <span className={cn("font-label text-[10px] uppercase font-bold tracking-widest", (player.status === 'LIVE' || player.status === 'Bidding') ? 'text-error' : 'text-white/40')}>
+            {player.status === 'LIVE' && <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>}
+            <span className={cn("font-label text-[10px] uppercase font-bold tracking-widest", player.status === 'LIVE' ? 'text-error' : 'text-white/40')}>
               {player.status === 'SOLD' ? (
                 <span className="text-primary">Sold to {player.sold_to?.name || 'Unknown Team'}</span>
-              ) : (player.status === 'LIVE' || player.status === 'Bidding') ? (
+              ) : player.status === 'LIVE' ? (
                 'Currently Bidding'
               ) : player.status === 'UPCOMING' ? (
                 'Upcoming'

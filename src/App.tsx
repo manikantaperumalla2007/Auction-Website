@@ -8,7 +8,7 @@ import UserProfile from './components/UserProfile';
 import Navbar from './components/Navbar';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 
 type Screen = 'landing' | 'admin' | 'directory' | 'auction' | 'watchlist' | 'team' | 'profile';
@@ -32,7 +32,6 @@ export default function App() {
   }, [currentScreen]);
 
   useEffect(() => {
-    // 1. Subscribe to live announcements
     const annSub = supabase
       .channel('announcements-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, (payload: any) => {
@@ -40,13 +39,11 @@ export default function App() {
       })
       .subscribe();
 
-    // 2. Initial data & session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
         syncUserProfile(u);
-        // Only move to directory if the user is explicitly on the landing page
         setCurrentScreen(prev => {
           if (prev === 'landing') return 'directory';
           return prev;
@@ -55,7 +52,6 @@ export default function App() {
       setLoading(false);
     });
 
-    // 3. Handle auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null;
       
@@ -69,9 +65,8 @@ export default function App() {
       if (u) {
         setUser(u);
         syncUserProfile(u);
-        // Only jump if it's a fresh login event
         if (event === 'SIGNED_IN') {
-           setCurrentScreen(prev => prev === 'landing' ? 'directory' : prev);
+          setCurrentScreen(prev => prev === 'landing' ? 'directory' : prev);
         }
       }
     });
@@ -96,7 +91,6 @@ export default function App() {
     
     if (error) console.error('Error syncing profile:', error.message);
     
-    // Check role
     if (data?.role === 'ADMIN') {
       setIsAdmin(true);
     } else {
@@ -123,7 +117,7 @@ export default function App() {
       case 'team':
         return <TeamSquads user={user} />;
       case 'watchlist':
-        return <PlayerDirectory user={user} />; // Watchlist is coming soon, redirect to directory for now
+        return <PlayerDirectory user={user} />;
       default:
         return <PlayerDirectory user={user} />;
     }

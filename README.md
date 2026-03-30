@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Auction Website
 
-# Run and deploy your AI Studio app
+This project is a Vite React frontend backed by Vercel-style serverless API routes and Supabase.
 
-This contains everything you need to run your app locally.
+## Prerequisites
 
-View your app in AI Studio: https://ai.studio/apps/f13a37e2-a831-43bd-b100-77823e283e3e
+- Node.js 20+
+- A Supabase project with the required tables
 
-## Run Locally
+## Environment
 
-**Prerequisites:**  Node.js
+Create a local env file and set:
 
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Optionally also set `SUPABASE_URL`. The server code will use it first and fall back to `VITE_SUPABASE_URL`.
+
+## Local Development
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Start the API layer on port `3000`:
+   `npm run dev:api`
+3. Start the Vite frontend on port `5173`:
    `npm run dev`
+
+The frontend proxies `/api/*` requests to `http://localhost:3000`, so both processes need to be running for full local functionality.
+
+## Useful Commands
+
+- `npm run dev`
+- `npm run dev:api`
+- `npm run build`
+- `npm run typecheck`
