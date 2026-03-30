@@ -1,4 +1,4 @@
-import { getAuctionSessionRecord, updateAuctionSessionRecord, supabaseAdmin } from './supabaseAdmin';
+import { getAuctionSessionRecord, updateAuctionSessionRecord, supabaseAdmin } from './supabaseAdmin.js';
 
 export async function placeBid({ playerId, teamId, amount, increment_used, userId, isOverride = false }: {
   playerId: string;

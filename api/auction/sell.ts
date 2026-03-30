@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { finalizeSale } from '../../lib/auctionEngine';
+import { finalizeSale } from '../../lib/auctionEngine.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST') {
