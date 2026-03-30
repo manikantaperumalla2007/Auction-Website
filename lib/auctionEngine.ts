@@ -1,11 +1,12 @@
 import { supabaseAdmin } from './supabaseAdmin';
 
-export async function placeBid({ playerId, teamId, amount, increment_used, userId }: {
+export async function placeBid({ playerId, teamId, amount, increment_used, userId, isOverride = false }: {
   playerId: string;
   teamId: string;
   amount: number;
   increment_used: number;
   userId: string;
+  isOverride?: boolean;
 }) {
   // 1. Start a transaction using a function (rpc) or manual lock if possible.
   // Since we're in serverless, we'll do this in a single atomic way.
@@ -20,7 +21,7 @@ export async function placeBid({ playerId, teamId, amount, increment_used, userI
   if (teamErr || !team) throw new Error('Team not found');
   const pointsRemaining = team.total_budget - team.points_spent;
   
-  if (pointsRemaining < amount) throw new Error('Insufficient points in budget');
+  if (!isOverride && pointsRemaining < amount) throw new Error('Insufficient points in budget');
 
   // Verify the player is currently live and the bid is higher than the current one
   // Using a single update with where clauses for optimistic locking
@@ -42,8 +43,8 @@ export async function placeBid({ playerId, teamId, amount, increment_used, userI
 
   if (playerErr || !player) throw new Error('Player records could not be fetched');
   
-  // Prevent self overbidding
-  if (player.last_bidder_id === teamId) {
+  // Prevent self overbidding (unless override)
+  if (!isOverride && player.last_bidder_id === teamId) {
     throw new Error('You are already the leading bidder');
   }
 

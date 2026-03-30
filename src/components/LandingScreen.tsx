@@ -16,6 +16,30 @@ export default function LandingScreen({ onLogin }: LandingScreenProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [stats, setStats] = useState({ teams: 0, players: 0, pool: 0 });
+
+  React.useEffect(() => {
+    async function fetchStats() {
+      try {
+        const { count: teamCount } = await supabase.from('teams').select('*', { count: 'exact', head: true });
+        const { count: playerCount } = await supabase.from('players').select('*', { count: 'exact', head: true });
+        const { data: teamsData } = await supabase.from('teams').select('total_budget');
+        
+        const totalPool = teamsData?.reduce((acc, t) => acc + (t.total_budget || 0), 0) || 0;
+        
+        if (teamCount !== null && playerCount !== null) {
+          setStats({
+            teams: teamCount,
+            players: playerCount,
+            pool: totalPool || (teamCount * 100) // Fallback if budget is 0
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch landing stats", err);
+      }
+    }
+    fetchStats();
+  }, []);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -176,7 +200,7 @@ export default function LandingScreen({ onLogin }: LandingScreenProps) {
             </div>
 
             <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between text-[10px] font-label text-on-surface/40 uppercase tracking-widest gap-4">
-              <span>VFL 2024 SEASON • VEDAM FOOTBALL LEAGUE v1.5</span>
+              <span>VFL 2026 SEASON • VEDAM FOOTBALL LEAGUE v1.5</span>
               <div className="flex gap-6">
                 <a className="hover:text-primary transition-colors flex items-center gap-1" href="#"><span className="material-symbols-outlined text-sm">shield</span> Privacy</a>
                 <a className="hover:text-primary transition-colors flex items-center gap-1" href="#"><span className="material-symbols-outlined text-sm">help</span> Support</a>
@@ -188,12 +212,12 @@ export default function LandingScreen({ onLogin }: LandingScreenProps) {
         {/* Floating Stats/Atmosphere Elements */}
         <div className="hidden lg:block absolute bottom-12 left-12 max-w-xs p-6 border-l-2 border-primary/30 bg-surface-container/20 backdrop-blur-md">
           <h4 className="font-label text-xs text-primary mb-2 uppercase tracking-tighter">Current Pool Value</h4>
-          <div className="font-headline text-4xl font-black text-white italic">1,200<span className="text-sm not-italic ml-1 text-on-surface/40">VFL</span></div>
-          <p className="mt-4 text-xs text-on-surface/50 leading-relaxed font-body">Aggregated team budgets across 12 participating franchises for the upcoming season draft.</p>
+          <div className="font-headline text-4xl font-black text-white italic">{stats.pool.toLocaleString()}<span className="text-sm not-italic ml-1 text-on-surface/40">VFL</span></div>
+          <p className="mt-4 text-xs text-on-surface/50 leading-relaxed font-body">Aggregated team budgets across {stats.teams} participating franchises for the upcoming season draft.</p>
         </div>
         <div className="hidden lg:block absolute bottom-12 right-12 max-w-xs text-right p-6 border-r-2 border-tertiary/30 bg-surface-container/20 backdrop-blur-md">
           <h4 className="font-label text-xs text-tertiary mb-2 uppercase tracking-tighter">Active Registrations</h4>
-          <div className="font-headline text-4xl font-black text-white italic">142<span className="text-sm not-italic ml-1 text-on-surface/40">PLAYERS</span></div>
+          <div className="font-headline text-4xl font-black text-white italic">{stats.players}<span className="text-sm not-italic ml-1 text-on-surface/40">PLAYERS</span></div>
           <p className="mt-4 text-xs text-on-surface/50 leading-relaxed font-body">Verified athletes cleared for the professional bidding segment starting tomorrow.</p>
         </div>
       </main>

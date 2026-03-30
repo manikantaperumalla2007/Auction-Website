@@ -19,6 +19,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const [finishedPlayers, setFinishedPlayers] = useState<any[]>([]);
   const [upcomingPlayers, setUpcomingPlayers] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [announcement, setAnnouncement] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [manualAmount, setManualAmount] = useState<string>('');
@@ -75,12 +76,18 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     fetchUpcoming();
     fetchFinished();
     fetchAllTeams();
+    fetchAllUsers();
     setLoading(false);
   }
 
   async function fetchAllTeams() {
     const { data } = await supabase.from('teams').select('*').order('name');
     setAllTeams(data || []);
+  }
+
+  async function fetchAllUsers() {
+    const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+    setAllUsers(data || []);
   }
 
   async function fetchFinished() {
@@ -115,13 +122,17 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   async function startAuction(playerId: string) {
     setIsProcessing(true);
     try {
-      // Start Auction via RPC (P1 Fix: Atomicity)
-      const { data: result, error: rpcError } = await supabase.rpc('spotlight_player', {
-        p_player_id: playerId
+      // 1. Call API for spotlighting player
+      const response = await fetch('/api/auction/next-player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId })
       });
 
-      if (rpcError) throw rpcError;
-      if (result && !result.success) throw new Error(result.message);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server returned ${response.status}`);
+      }
       
       console.log('Auction Spotlight Active');
     } catch (err: any) {
@@ -138,20 +149,23 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     setIsProcessing(true);
 
     try {
-      // Execute Atomic Sale via RPC (P1 Fix)
-      const { data: result, error: rpcError } = await supabase.rpc('finalize_sale', {
-        p_player_id: activePlayer.id
+      // 2. Call API for finalizing sale
+      const response = await fetch('/api/auction/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: activePlayer.id,
+          teamId: latestBid.team_id,
+          price: latestBid.amount
+        })
       });
 
-      if (rpcError) throw rpcError;
-
-      if (result && !result.success) {
-        alert(result.message || "Failed to finalize sale.");
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server returned ${response.status}`);
       }
 
       console.log("🏆 SOLD");
-
       setActivePlayer(null);
       setBids([]);
     } catch (err: any) {
@@ -166,13 +180,17 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     if (!activePlayer) return;
     setIsProcessing(true);
     try {
-      // Execute Atomic Unsold via RPC (P1 Fix)
-      const { data: result, error: rpcError } = await supabase.rpc('mark_unsold', {
-        p_player_id: activePlayer.id
+      // 3. Call API for marking unsold
+      const response = await fetch('/api/auction/unsold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: activePlayer.id })
       });
 
-      if (rpcError) throw rpcError;
-      if (result && !result.success) throw new Error(result.message);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server returned ${response.status}`);
+      }
 
       setActivePlayer(null);
       setBids([]);
@@ -187,8 +205,11 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   async function togglePause() {
     if (!session) return;
     try {
-      // Atomic toggle
-      await supabase.rpc('toggle_auction_pause');
+      // 4. API call for pause/resume
+      await fetch('/api/admin/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
     } catch (err) {
       console.error('Error toggling pause:', err);
     }
@@ -196,17 +217,18 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
   async function undoLastBid() {
     if (!activePlayer || bids.length === 0) return;
-    const lastBid = bids[0];
-
     try {
-      // Execute Atomic Undo via RPC (P2 Fix: Non-destructive audit trail)
-      const { data: result, error: rpcError } = await supabase.rpc('undo_last_bid', {
-        p_player_id: activePlayer.id
+      // 5. API call for undo last bid
+      const response = await fetch('/api/admin/undo-bid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: activePlayer.id })
       });
 
-      if (rpcError) throw rpcError;
-      if (result && !result.success) alert(result.message);
-
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server returned ${response.status}`);
+      }
     } catch (err) {
       console.error('Error undoing bid:', err);
     }
@@ -225,16 +247,25 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
     setIsProcessing(true);
     try {
-      const { data: result, error: rpcError } = await supabase.rpc('place_bid', {
-        p_player_id: activePlayer.id,
-        p_team_id: selectedTeamId,
-        p_amount: amount,
-        p_increment: 0,
-        p_is_override: true
+      // 6. Use the bidding API with override flag set to true (if supported by logic)
+      const response = await fetch('/api/bids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: activePlayer.id,
+          teamId: selectedTeamId,
+          amount: amount,
+          increment_used: 0,
+          userId: user.id,
+          isOverride: true
+        })
       });
 
-      if (rpcError) throw rpcError;
-      if (result && !result.success) throw new Error(result.message);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server returned ${response.status}`);
+      }
+
       setManualAmount('');
       setSelectedTeamId('');
     } catch (err: any) {
@@ -248,16 +279,65 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     if (!announcement) return;
     setIsProcessing(true);
     try {
-      const { error } = await supabase.from('announcements').insert({
-        message: announcement,
-        created_by_admin_id: user?.id
+      // 7. API call for broadcasting
+      const response = await fetch('/api/admin/announce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: announcement,
+          adminId: user?.id
+        })
       });
-      if (error) throw error;
+
+      if (!response.ok) throw new Error(`Announcement failed with ${response.status}`);
+
       setAnnouncement('');
       alert('Broadcast dispatched successfully!');
     } catch (err: any) {
       console.error('Error posting announcement:', err);
       alert('Broadcast failed: ' + err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function updateUserRole(userId: string, role: string, teamId: string | null) {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ role, team_id: teamId })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      fetchAllUsers();
+      alert('User permission updated');
+    } catch (err: any) {
+      alert('Update failed: ' + err.message);
+    }
+  }
+
+  async function handleResetAuction() {
+    if (!window.confirm("⚠️ DANGER: This will purge all bids and reset all player/team data. Continue?")) {
+      return;
+    }
+    if (!window.confirm("FINAL WARNING: Are you absolutely sure you want to reset the GLOBAL ARENA?")) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await fetch('/api/admin/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error(`Reset failed with ${response.status}`);
+
+      alert('Arena Reset Complete! All systems at zero.');
+      window.location.reload(); 
+    } catch (err: any) {
+      console.error('Error resetting auction:', err);
+      alert('Reset failed: ' + err.message);
     } finally {
       setIsProcessing(false);
     }
@@ -298,6 +378,16 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               {session?.status === 'PAUSED' ? <Play className="w-5 h-5 fill-surface" /> : <Pause className="w-5 h-5 text-tertiary fill-tertiary" />}
               <span className="font-headline font-bold uppercase tracking-tight text-sm">
                 {session?.status === 'PAUSED' ? 'Resume Hub' : 'Pause Hub'}
+              </span>
+            </button>
+            <button 
+              onClick={handleResetAuction}
+              disabled={isProcessing}
+              className="bg-error/5 border border-error/10 hover:bg-error hover:text-white px-8 py-4 flex items-center gap-3 transition-all rounded-lg group"
+            >
+              <RotateCcw className={cn("w-5 h-5 text-error group-hover:text-white transition-colors", isProcessing && "animate-spin")} />
+              <span className="font-headline font-bold uppercase tracking-tight text-sm">
+                Global Reset
               </span>
             </button>
             <div className="h-12 w-px bg-white/10"></div>
@@ -501,6 +591,86 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                          <span className="text-[9px] font-black uppercase text-white/20">{p.tier}</span>
                       </div>
                    ))}
+                </div>
+             </div>
+          </div>
+
+          {/* User Pass Management */}
+          <div className="lg:col-span-12">
+             <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="p-8 border-b border-white/10 bg-white/[0.02] flex justify-between items-center">
+                   <div>
+                      <h3 className="font-headline text-3xl font-black italic uppercase text-primary tracking-tight">Access Control</h3>
+                      <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-1">Assign Captains & Admins</p>
+                   </div>
+                   <button onClick={fetchAllUsers} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                      <RotateCcw className="w-5 h-5 text-white/20" />
+                   </button>
+                </div>
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left border-collapse">
+                      <thead>
+                         <tr className="bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/40">
+                            <th className="px-8 py-4">Identity</th>
+                            <th className="px-8 py-4">Current Role</th>
+                            <th className="px-8 py-4">Assigned Team</th>
+                            <th className="px-8 py-4 text-right">Action</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                         {allUsers.map(u => (
+                            <tr key={u.id} className="hover:bg-white/[0.02] transition-colors group">
+                               <td className="px-8 py-6">
+                                  <div className="flex items-center gap-4">
+                                     <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-xs overflow-hidden">
+                                        {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full object-cover" /> : u.email[0].toUpperCase()}
+                                     </div>
+                                     <div>
+                                        <div className="font-bold text-sm text-white uppercase">{u.name || 'Anonymous User'}</div>
+                                        <div className="text-[10px] text-white/40 font-mono tracking-tighter">{u.email}</div>
+                                     </div>
+                                  </div>
+                               </td>
+                               <td className="px-8 py-6 text-sm">
+                                  <select 
+                                     value={u.role}
+                                     onChange={(e) => {
+                                        const newRole = e.target.value;
+                                        updateUserRole(u.id, newRole, u.team_id);
+                                     }}
+                                     className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-[10px] font-black uppercase tracking-widest focus:border-primary outline-none transition-all"
+                                  >
+                                     <option value="VIEWER">Viewer</option>
+                                     <option value="TEAM_OWNER">Captain</option>
+                                     <option value="ADMIN">Admin</option>
+                                  </select>
+                               </td>
+                               <td className="px-8 py-6 text-sm">
+                                  <select 
+                                     value={u.team_id || ''}
+                                     disabled={u.role !== 'TEAM_OWNER'}
+                                     onChange={(e) => {
+                                        const newTeamId = e.target.value || null;
+                                        updateUserRole(u.id, u.role, newTeamId);
+                                     }}
+                                     className={cn(
+                                        "bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-[10px] font-black uppercase tracking-widest focus:border-primary outline-none transition-all",
+                                        u.role !== 'TEAM_OWNER' && "opacity-20 cursor-not-allowed"
+                                     )}
+                                  >
+                                     <option value="">No Team Assigned</option>
+                                     {allTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                  </select>
+                               </td>
+                               <td className="px-8 py-6 text-right">
+                                  <div className="flex justify-end gap-2 text-white/20">
+                                     <span className="text-[10px] font-black uppercase tracking-widest group-hover:text-primary transition-colors">Managed</span>
+                                  </div>
+                               </td>
+                            </tr>
+                         ))}
+                      </tbody>
+                   </table>
                 </div>
              </div>
           </div>

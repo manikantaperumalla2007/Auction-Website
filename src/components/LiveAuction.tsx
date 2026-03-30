@@ -257,24 +257,32 @@ export default function LiveAuction({ user }: LiveAuctionProps) {
     setIsBidding(true);
 
     try {
-      // 1. Calculate the suggested amount locally for instant UI (will be verified by server)
+      // 1. Calculate suggested amount
       const currentHighest = bids.length > 0 ? bids[0].amount : (activePlayer.base_price - 1);
       const bidAmount = currentHighest + increment;
 
-      // 2. Execute Atomic Bid via RPC (P1 Fix: Prevents Race Conditions)
-      const { data: result, error: rpcError } = await supabase.rpc('place_bid', {
-        p_player_id: activePlayer.id,
-        p_team_id: effectiveTeamId,
-        p_amount: bidAmount,
-        p_increment: increment,
-        p_is_override: false
+      // 2. Call the Serverless API instead of direct RPC
+      const response = await fetch('/api/bids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: activePlayer.id,
+          teamId: effectiveTeamId,
+          amount: bidAmount,
+          increment_used: increment,
+          userId: user.id // Pass user ID for verification
+        })
       });
 
-      if (rpcError) throw rpcError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server returned ${response.status}`);
+      }
 
-      if (result && !result.success) {
-        alert(result.message || "Bidding conflict detected. Please try again.");
-        // Refresh local state to synchronize with the market
+      const result = await response.json();
+      
+      if (!result.success) {
+        alert(result.message || "Bidding conflict detected.");
         if (activePlayer?.id) fetchBids(activePlayer.id);
         setIsBidding(false);
         return;
