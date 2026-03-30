@@ -51,10 +51,12 @@ export async function placeBid({ playerId, teamId, amount, increment_used, userI
     throw new Error('You are already the leading bidder');
   }
 
-  const minimumAllowedBid = Math.max(player.base_price, leadingBid?.amount || 0);
+  if (!leadingBid && amount < player.base_price) {
+    throw new Error(`Bid must be equal to or greater than ${player.base_price}`);
+  }
 
-  if (amount <= minimumAllowedBid) {
-    throw new Error(`Bid must be greater than ${minimumAllowedBid}`);
+  if (leadingBid && amount <= leadingBid.amount) {
+    throw new Error(`Bid must be greater than ${leadingBid.amount}`);
   }
 
   const { error: insertErr } = await supabaseAdmin
