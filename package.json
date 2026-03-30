@@ -1,16 +1,8 @@
 {
-  "name": "your-package-name",
+  "name": "auction-website",
   "version": "1.0.0",
   "devDependencies": {
-    "@google/genai": "latest",
-    "@supabase/supabase-js": "latest",
-    "@tailwindcss/vite": "latest",
-    "@types/node": "latest",
-    "@vitejs/plugin-react": "latest",
-    "autoprefixer": "latest",
-    "tailwindcss": "latest",
-    "tsx": "latest",
-    "typescript": "latest",
-    "vite": "latest"
+    "@vercel/node": "remove",
+    // other existing devDependencies
   }
 }
