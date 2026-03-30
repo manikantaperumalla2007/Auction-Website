@@ -25,6 +25,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const [manualAmount, setManualAmount] = useState<string>('');
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const unsoldCount = finishedPlayers.filter((player) => player.status === 'UNSOLD').length;
 
   useEffect(() => {
     initAdmin();
@@ -119,14 +120,14 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     setUpcomingPlayers(data || []);
   }
 
-  async function startAuction(playerId: string) {
+  async function startAuction(playerId?: string) {
     setIsProcessing(true);
     try {
       // 1. Call API for spotlighting player
       const response = await fetch('/api/auction/next-player', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId })
+        body: JSON.stringify(playerId ? { playerId } : {})
       });
 
       if (!response.ok) {
@@ -392,17 +393,27 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
             </button>
             <div className="h-12 w-px bg-white/10"></div>
             <div className="flex gap-2 bg-white/5 p-1 rounded-xl">
-                {upcomingPlayers.slice(0, 1).map(p => (
-                  <button 
-                  key={p.id}
+              {upcomingPlayers.length > 0 && (
+                <button 
+                  key={upcomingPlayers[0].id}
                   disabled={isProcessing}
-                  onClick={() => startAuction(p.id)}
+                  onClick={() => startAuction(upcomingPlayers[0].id)}
                   className="bg-primary hover:bg-primary-dim disabled:opacity-50 text-surface px-8 py-3 flex items-center gap-3 transition-all rounded-lg shadow-[0_0_20px_rgba(255,231,146,0.3)]"
-                  >
-                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <SkipForward className="w-4 h-4 fill-surface" />}
-                    <span className="font-label font-black uppercase text-xs tracking-widest">Call {p.name}</span>
-                  </button>
-                ))}
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <SkipForward className="w-4 h-4 fill-surface" />}
+                  <span className="font-label font-black uppercase text-xs tracking-widest">Call {upcomingPlayers[0].name}</span>
+                </button>
+              )}
+              {upcomingPlayers.length === 0 && unsoldCount > 0 && (
+                <button 
+                  disabled={isProcessing}
+                  onClick={() => startAuction()}
+                  className="bg-primary hover:bg-primary-dim disabled:opacity-50 text-surface px-8 py-3 flex items-center gap-3 transition-all rounded-lg shadow-[0_0_20px_rgba(255,231,146,0.3)]"
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  <span className="font-label font-black uppercase text-xs tracking-widest">Start Re-Auction ({unsoldCount})</span>
+                </button>
+              )}
             </div>
           </div>
         </section>
