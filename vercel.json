@@ -1,1 +1,4 @@
-{\n  \"buildCommand\": \"npm run build\",\n  \"outputDirectory\": \"dist\"\n}
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}
